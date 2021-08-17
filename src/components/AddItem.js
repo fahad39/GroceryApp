@@ -8,6 +8,7 @@ import moment from 'moment';
 import Input from './Input';
 import PrimaryButton from './PrimaryButton';
 import authStorage from '../config/storage';
+import useList from '../context/useList';
 
 const AddItem = ({visible, onAccept, onReject}) => {
   // Variables
@@ -15,11 +16,12 @@ const AddItem = ({visible, onAccept, onReject}) => {
   const [status, setStatus] = useState('');
   const [priority, setPriority] = useState('');
   const [date, setDate] = useState(moment().format('LLL'));
+  const {addToList} = useList();
 
   //Save Product Function
 
-  const handleStore = async obj => {
-    await authStorage.storeProduct(obj);
+  const handleStore = obj => {
+    addToList(obj);
   };
 
   const handleSave = async () => {

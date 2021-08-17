@@ -1,54 +1,93 @@
 import React, {useState, useEffect} from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  FlatList,
-  Switch,
-  TouchableOpacity,
-} from 'react-native';
+import {View, Text, StyleSheet, FlatList} from 'react-native';
 
 import AddItem from '../components/AddItem';
 import FilterButton from '../components/FilterButton';
-import authStorage from '../config/storage';
+import useList from '../context/useList';
+import {Radio} from 'native-base';
+import moment from 'moment';
+import {getList} from '../config/storage';
 
 const ListView = ({navigation}) => {
   const [showFilter, setShowFilter] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [product, setProduct] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [deleted, setDeleted] = useState(false);
+
+  const [status, setStatus] = useState();
+  const {list, updateList, deleteListItem, setList} = useList();
 
   useEffect(() => {
-    getProducts();
-  }, [showModal]);
+    setProducts(list);
+  }, [deleted, showModal]);
 
-  const getProducts = async () => {
-    let values = await authStorage.getAllProduct();
-    console.log('value is', values);
-    values.forEach(item => {
-      let products = JSON.parse(item[1]);
-      setProduct([...product, products]);
-    });
+  useEffect(() => {
+    restoreList();
+  }, []);
+
+  const restoreList = async () => {
+    const list = await getList();
+    console.log({list});
+    setList(list);
   };
 
   const renderItem = ({item}) => {
     let update = item.history.length;
+    const handleOnChnage = value => {
+      setStatus(value);
+      item.history = [...item.history, moment().format('LLL')];
+      updateList(item);
+    };
+
     return (
       <View style={styles.card}>
-        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}>
           <Text>Name: {item.title}</Text>
-          <Switch value={item.status === 'have' ? true : false} />
         </View>
 
         <Text>Last Edit: {item.history[update - 1]}</Text>
         <Text>Priority: {item.priority}</Text>
-        <FilterButton
-          title="View"
-          color="red"
-          onPress={() => navigation.naviagte('EntryView')}
-        />
+        <Radio.Group
+          accessibility="hello"
+          value={item.status}
+          onChange={handleOnChnage}>
+          <Radio value="have">Have</Radio>
+          <Radio value="ranOut">Ran Out</Radio>
+        </Radio.Group>
+        <View style={{alignSelf: 'center'}}>
+          <FilterButton
+            title="View"
+            color="red"
+            onPress={() => navigation.navigate('EntryView', {item: item})}
+          />
+          <FilterButton
+            title="Delete"
+            color="red"
+            onPress={() => {
+              deleteListItem(item);
+              setDeleted(!deleted);
+            }}
+          />
+        </View>
+        {console.log({item})}
       </View>
     );
+  };
+  // Filter Function
+  const renderFilter = status => {
+    console.log({status});
+    if (status.toLowerCase() === 'all') {
+      return setProducts(list);
+    }
+    let temp = products.filter(
+      item => item.status.toLowerCase() === status.toLowerCase(),
+    );
+    setProducts(temp);
   };
 
   return (
@@ -80,16 +119,28 @@ const ListView = ({navigation}) => {
       {/* Filter View */}
       {showFilter && (
         <View style={styles.filter}>
-          <FilterButton title={'Ran Out'} color="#ffbe6d" />
-          <FilterButton title={'Have'} color="#ffbe6d" />
-          <FilterButton title={'All'} color="#ffbe6d" />
+          <FilterButton
+            title={'Ran Out'}
+            color="#ffbe6d"
+            onPress={() => renderFilter('ranout')}
+          />
+          <FilterButton
+            title={'Have'}
+            color="#ffbe6d"
+            onPress={() => renderFilter('have')}
+          />
+          <FilterButton
+            title={'All'}
+            color="#ffbe6d"
+            onPress={() => renderFilter('all')}
+          />
         </View>
       )}
 
-      {/* Product List */}
+      {/* FlatList */}
       <View style={styles.subContainer}>
         <FlatList
-          data={product}
+          data={products}
           keyExtractor={item => item.id}
           renderItem={renderItem}
         />
@@ -136,12 +187,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   card: {
-    height: 60,
-    marginVertical: 10,
+    marginVertical: 5,
     borderBottomWidth: 1,
     borderBottomColor: 'blue',
     marginBottom: 20,
-    paddingVertical: 10,
   },
 });
 
